@@ -17,7 +17,7 @@ pip install -e .
 To run vector extraction, ablation and evaluation, run the script bellow:
 
 ```bash
-python -m pipeline.run_pipeline --config_path configs/llama3.yaml
+python -m pipeline.run_pipeline --config_path configs/qwen3_14b.yaml
 ```
 
 
