@@ -17,8 +17,7 @@ pip install -e .
 To run vector extraction, ablation and evaluation, run the script bellow:
 
 ```bash
-python -m pipeline.run_pipeline --config_path configs/cfg.yaml
+python -m pipeline.run_pipeline --config_path configs/llama3.yaml
 ```
-Before running, please note:​​ Modify the path: "/local3/user/Jailbreaking/dataset/processed/SafeMedEval-21K-all.jsonl"in your cfg.yaml configuration file to the actual path of your SafeMedEval-21K-all.jsonl file.
 
 
