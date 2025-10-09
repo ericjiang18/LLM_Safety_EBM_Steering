@@ -1,0 +1,157 @@
+# --- Llama2 Chat HF 评估专用配置 ---
+model_path: meta-llama/Llama-3.1-8B-Instruct #meta-llama/Llama-2-7b-chat-hf
+model_alias: Llama-3.1-8B-Instruct_eval_only
+artifact_path: output/Llama-3.1-8B-Instruct_eval_only/ 
+
+# --- 模式设置：EBM干预模式 ---
+mode: ebm_fr_push  # EBM for False Refusal push only
+baseline: false
+
+# --- 基本参数 ---
+batch_size: 16
+random_seed: 1
+start_layer: 0
+system: null
+
+# --- 数据集采样设置 ---
+n_train: 1700
+n_val: 300
+n_test: 1000  # 设置足够大的数字以包含完整数据集
+
+# --- 向量干预参数（为EBM提供必要的参数） ---
+steer_kl_threshold: 0.1
+addact_coeff: 0.5
+ablate_kl_threshold: 0.2
+ablation_coeff: 1.0
+ortho_lambda: 1.0
+top_n: 1
+
+harmtype_1: or_bench_hard
+harmtype_2: harmless
+harmtype_3: harmful
+
+# --- 生成和评估参数 ---
+max_new_tokens: 512  # 设置为512 tokens
+device: cuda
+
+# --- 指定评估数据集 ---
+# 这些是用户要求的数据集：JBB, Harmful, ORB-H, XSTest-S(H), OKTest
+jailbreak_evaluation_datasets:
+  - jailbreakbench       # JBB - JailbreakBench
+  - or-bench-toxic-harmful  # ORB-H - Or-bench Hard
+  - xstest_unsafe        # XSTest unsafe (harmful part)
+  
+over_refusal_evaluation_datasets:
+  - xstest_safe          # XSTest-S(H) - safe prompts that shouldn't be refused  
+  - oktest               # OKTest
+
+# Note: "harmful" dataset will be handled through load_dataset_split as a harmtype
+
+# --- 评估方法 ---
+refusal_eval_methodologies: # 用于评估过度拒绝（在安全/伪有害集合上的错误拒绝/合规性）
+  - substring_matching
+
+jailbreak_eval_methodologies: # 用于评估对有害集合的安全性
+  - substring_matching
+
+# --- LM评估工具配置（如需要） ---
+eval_harness:
+  batch_size: 2
+  limit: null  # 使用完整数据集
+  num_fewshot: 0
+  random_seed: 42
+  tasks:
+    - truthfulqa_gen
+    - arc_challenge
+    - wikitext
+
+eval_harness_mmlu:
+  batch_size: 2
+  limit: null  # 使用完整数据集
+  num_fewshot: 5
+  random_seed: 42
+  tasks:
+    - mmlu
+
+# --- 默认评估方法 ---
+default_eval_methodologies:
+  - substring_matching
+
+# --- 数据集特定评估方法（如需要） ---
+dataset_specific_eval_methodologies: {}
+
+
+# --- EBM Specific Parameters (NEW SECTION) ---
+_ebm_params: &ebm_params
+  # --- EBM Data Sources (NEW FLEXIBLE STRUCTURE) ---
+  ebm_data_sources:
+    harmless_prompts: # For EBM: these are is_harmful_context=False. Compliance is good, Refusal is bad.
+      - type: "jsonl"
+        name: "SafeMedEval_Level0_Harmless"
+        path: "/home/ericjiang0318/Jailbreaking-master-jhc/dataset/processed/SafeMedEval-21K-all.jsonl"
+        prompt_field: "prompt"
+        filter_field: "harmful_level"
+        filter_value: 0
+        sample_size: 1000 # Adjust as needed
+        # is_harmful_context for these will be False.
+
+    true_harmful_prompts: # For EBM: these are is_harmful_context=True. Refusal is good, Compliance is bad.
+      - type: "jsonl"
+        name: "SafeMedEval_Level3_Harmful"
+        path: "/home/ericjiang0318/Jailbreaking-master-jhc/dataset/processed/SafeMedEval-21K-all.jsonl"
+        prompt_field: "prompt"
+        filter_field: "harmful_level"
+        filter_value: 2 
+        sample_size: 1000 # Adjust as needed
+        # is_harmful_context for these will be True.
+
+    pseudo_harmful_prompts: [] # Explicitly empty for this request, to focus on clear harmful/harmless split.
+
+  # --- Fallback Data Collection for EBM Training (if ebm_data_sources is not defined or above lists are empty) ---
+  # These will likely not be used if the above is configured correctly.
+  ebm_fr_positive_datasets: [] 
+  ebm_harmless_data: null      
+
+
+  # --- vLLM参数 ---
+  vllm_tensor_parallel_size: 1
+  vllm_max_num_batched_tokens: 512
+  vllm_max_num_seqs: 16
+  vllm_gpu_memory_utilization: 0.50
+  vllm_block_size: 16
+  vllm_max_model_len: 512
+  # 使用相对路径避免硬编码绝对路径问题
+  vllm_download_dir: "./model_cache"
+
+  # --- 生成参数 ---
+  max_new_tokens_for_ebm_data: 512
+  activation_extraction_batch_size: 16
+
+  # --- EBM模型和训练参数 ---
+  ebm_architecture: 'complex'
+  simple_ebm_hidden_dim: 512
+  complex_ebm_hidden_dims: [2048, 1024, 1024, 512]
+  complex_ebm_dropout_rate: 0.15
+  complex_ebm_use_layernorm: true
+
+  ebm_target_layer: all
+  ebm_target_positions: "-1"
+  
+  ebm_fr_save_path: "output/{model_alias}/ebms/ebm_mixed_arch-{ebm_architecture}_layer{ebm_target_layer}_pos{ebm_target_positions_filename_part}.pt"
+
+  ebm_lr: 0.00005
+  ebm_batch_size: 64
+  ebm_epochs: 120
+  ebm_margin: 1.2
+  force_retrain_ebm: true
+
+  # --- EBM干预参数 ---
+  top_n_layers_for_final_ebm: 15
+  ebm_intervention_layers: "all"
+  ebm_eta: 0.1 #0.1
+  ebm_num_gradient_steps: 3
+  ebm_infonce_temperature: 0.10
+
+ebm_params: *ebm_params
+
+
