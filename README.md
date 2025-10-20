@@ -5,13 +5,6 @@
 ```bash
 source setup.sh
 ```
-Install the evaluation harness from source
-
-```bash
-cd lm-evaluation-harness
-pip install -e .
-``` 
-
 
 ## 🔭 Experiments 
 To run vector extraction, ablation and evaluation, run the script bellow:
