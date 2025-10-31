@@ -3,7 +3,7 @@
 
 ## 🪜 Environment Setup 
 ```bash
-source setup.sh
+pip install -r requirements.txt
 ```
 
 ## 🔭 Experiments 
